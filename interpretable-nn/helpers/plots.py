@@ -36,3 +36,77 @@ def plot_rgb_decomposition(rgb_image):
         ax.axis('off')
     plt.tight_layout()
     plt.show()
+
+
+def plot_image_grid(images,
+                    grid,
+                    row_labels_left,
+                    row_labels_right,
+                    col_labels,
+                    file_name=None,
+                    figsize=None,
+                    dpi=224):
+    n_rows = len(grid)
+    n_cols = len(grid[0]) + 1
+    if figsize is None:
+        figsize = (n_cols, n_rows + 1)
+
+    plt.clf()
+    plt.rc("font", family="sans-serif")
+
+    plt.figure(figsize=figsize)
+    for r in range(n_rows):
+        ax = plt.subplot2grid(shape=[n_rows + 1, n_cols], loc=[r + 1, 0])
+        ax.imshow(images[r])
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # row labels
+
+        if row_labels_left != []:
+            txt_left = [l + '\n' for l in row_labels_left[r]]
+            ax.set_ylabel(
+                ''.join(txt_left),
+                rotation=0,
+                verticalalignment='center',
+                horizontalalignment='right',
+            )
+
+        for c in range(0, n_cols - 1):
+            ax = plt.subplot2grid(shape=[n_rows + 1, n_cols + 1],
+                                  loc=[r + 1, c + 1])
+            if grid[r][c] is not None:
+                ax.imshow(grid[r][c], interpolation='none', cmap='seismic',
+                          clim=(-1, 1))
+            else:
+                for spine in plt.gca().spines.values():
+                    spine.set_visible(False)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            # column labels
+            if not r:
+                if col_labels != []:
+                    ax.set_title(col_labels[c],
+                                 rotation=22.5,
+                                 horizontalalignment='left',
+                                 verticalalignment='bottom')
+
+            if c == n_cols - 1:
+                if row_labels_right != []:
+                    txt_right = [l + '\n' for l in row_labels_right[r]]
+                    ax2 = ax.twinx()
+                    ax2.set_xticks([])
+                    ax2.set_yticks([])
+                    ax2.set_ylabel(
+                        ''.join(txt_right),
+                        rotation=0,
+                        verticalalignment='center',
+                        horizontalalignment='left'
+                    )
+
+    if file_name is None:
+        plt.show()
+    else:
+        print('Saving figure to {}'.format(file_name))
+        plt.savefig(file_name, orientation='landscape', dpi=dpi)
