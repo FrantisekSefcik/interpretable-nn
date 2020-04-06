@@ -18,3 +18,4 @@ docker build -t interpretable-nn/tensorflow:1.15.0-gpu-py3-jupyter .
 ```shell script
 cd ..
 docker run --gpus all -u $(id -u):$(id -g) --rm -p 8888:8888 -p 6006:6006 -v $(pwd):/project -it --name interpretable-nn-project interpretable-nn/tensorflow:1.15.0-gpu-py3-jupyter
+```
