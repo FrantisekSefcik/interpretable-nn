@@ -4,12 +4,16 @@ import matplotlib.pyplot as plt
 # This function will plot images in the form of a grid with 1 row and 5 columns
 # where images are placed in each column.
 
-def plot_rgb_images(images_arr, num_imgs=5):
+def plot_rgb_images(images_arr, num_imgs=5, titles=None):
     fig, axes = plt.subplots(1, num_imgs, figsize=(20, 20))
     axes = axes.flatten()
-    for img, ax in zip(images_arr, axes):
+    for i, (img, ax) in enumerate(zip(images_arr, axes)):
         ax.imshow(img)
         ax.axis('off')
+        if titles:
+            txt_top = [l + '\n' for l in titles[i]]
+            ax.set_title(''.join(txt_top),
+                         horizontalalignment='left')
     plt.tight_layout()
     plt.show()
 
@@ -20,6 +24,17 @@ def plot_gray_images(images_arr, num_imgs=5):
     for img, ax in zip(images_arr, axes):
         img = img.reshape((img.shape[0], img.shape[1]))
         ax.imshow(img, cmap='gray')
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_analysis_images(images_arr, num_imgs=5):
+    fig, axes = plt.subplots(1, num_imgs, figsize=(20, 20))
+    axes = axes.flatten()
+    for img, ax in zip(images_arr, axes):
+        img = img.reshape((img.shape[0], img.shape[1]))
+        ax.imshow(img, cmap='seismic', clim=(-1, 1))
         ax.axis('off')
     plt.tight_layout()
     plt.show()
@@ -92,7 +107,7 @@ def plot_image_grid(images,
                                  horizontalalignment='left',
                                  verticalalignment='bottom')
 
-            if c == n_cols - 1:
+            if c == n_cols - 2:
                 if row_labels_right != []:
                     txt_right = [l + '\n' for l in row_labels_right[r]]
                     ax2 = ax.twinx()
