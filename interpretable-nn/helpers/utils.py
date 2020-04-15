@@ -46,3 +46,7 @@ def sum_image_channels(image):
 
 def any_image_channels(image):
     return image.any(axis=np.argmax(np.asarray(image.shape) == 3))
+
+
+def reject_outliers(data, m=2):
+    return data[abs(data - np.mean(data)) < m * np.std(data)]
