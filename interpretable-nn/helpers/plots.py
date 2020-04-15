@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 
 
 # This function will plot images in the form of a grid with 1 row and 5 columns
@@ -40,14 +42,14 @@ def plot_analysis_images(images_arr, num_imgs=5):
     plt.show()
 
 
-def plot_rgb_decomposition(rgb_image):
+def plot_rgb_decomposition(rgb_image, cmap='gray', clim=None):
     r = rgb_image[:, :, 0]
     g = rgb_image[:, :, 1]
     b = rgb_image[:, :, 2]
     fig, axes = plt.subplots(1, 3, figsize=(20, 20))
     axes = axes.flatten()
     for img, ax in zip([r, g, b], axes):
-        ax.imshow(img, cmap='gray')
+        ax.imshow(img, cmap=cmap, clim=clim)
         ax.axis('off')
     plt.tight_layout()
     plt.show()
@@ -91,8 +93,7 @@ def plot_image_grid(images,
             ax = plt.subplot2grid(shape=[n_rows + 1, n_cols + 1],
                                   loc=[r + 1, c + 1])
             if grid[r][c] is not None:
-                ax.imshow(grid[r][c], interpolation='none', cmap='seismic',
-                          clim=(-1, 1))
+                ax.imshow(grid[r][c], interpolation='none')
             else:
                 for spine in plt.gca().spines.values():
                     spine.set_visible(False)
@@ -125,3 +126,19 @@ def plot_image_grid(images,
     else:
         print('Saving figure to {}'.format(file_name))
         plt.savefig(file_name, orientation='landscape', dpi=dpi)
+
+
+def plot_data_distribution(data1, data2):
+    print("            data1    data2")
+    print(f"mean:    |  {np.mean(data1):.2f}  |  {np.mean(data2):.2f}  |")
+    print(f"std:     |  {np.std(data1, ddof=1):.2f}  |  {np.std(data2, ddof=1):.2f}  |")
+    print(f"min:     |  {np.min(data1):.2f}  |  {np.min(data2):.2f}  |")
+    print(f"max:     |  {np.max(data1):.2f}  |  {np.max(data2):.2f}  |")
+    print(f"median:  |  {np.median(data1):.2f}  |  {np.median(data2):.2f}  |")
+    fig, axs = plt.subplots(nrows=1, ncols=3, constrained_layout=True,
+                            figsize=(20, 5))
+    sns.boxplot(data=[data1, data2], ax=axs[0])
+    sns.violinplot(data=[data1, data2], ax=axs[1])
+    sns.kdeplot(data=data1, shade=True, ax=axs[2])
+    sns.kdeplot(data=data2, shade=True, ax=axs[2])
+
