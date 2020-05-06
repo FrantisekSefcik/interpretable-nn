@@ -93,17 +93,16 @@ def process_analysis_image(img):
     return img
 
 
-def evaluate_method_visualize(model, analyzer, x, x_seg, y):
+def visualize_method(model, analyzer, x, x_seg, y):
     metrics = evaluate_method(model, analyzer, x, x_seg, y)
-    (y, pred, prob, score) = np.stack(np.array(list(metrics)), axis=-1)
+    analisis_imgs = analyzer.analyze(x)
     titles = [
-        ('Prob: {:.2f}'.format(p), 'Label: {}'.format(y),
-         'Pred: {}'.format(y_h), 'Eval: {:.2f}'.format(y_a))
-        for p, y, y_h, y_a in metrics]
+        ('Label: {}     '.format(y), 'Pred:  {}     '.format(y_h),
+         'Prob:  {:.2f}'.format(p), 'Score: {:.2f}'.format(y_a))
+        for y, y_h, p, y_a in metrics]
 
-    plots.plot_rgb_images(x, titles=titles)
-    plots.plot_gray_images(x_seg)
-    plots.plot_analysis_images(analysis)
+    for img, seg, anlz, title in zip(x, x_seg, analisis_imgs, titles):
+        plot_image_analysis(img, seg, anlz, title)
 
 
 def evaluate_masks_visualize(model, analyzer, x, x_seg, y, figsize=(18, 5)):
@@ -149,6 +148,28 @@ def evaluate_masks(model, analyzer, x, x_seg, y):
     return zip(y, y_hat, y_1, y_2, y_3, y_4, y_t)
 
 
+def plot_image_analysis(image, mask, analysis, title, figsize=(10, 2)):
+    fig, axes = plt.subplots(1, 3, figsize=figsize)
+    axes[0].imshow(image)
+    # axes[1].axis('off')
+    txt_left = [l + '\n' for l in title]
+    axes[0].set_ylabel(
+        ''.join(txt_left),
+        rotation=0, verticalalignment='center', horizontalalignment='right'
+    )
+    axes[0].set_xticks([])
+    axes[0].set_yticks([])
+    mask = mask.reshape((mask.shape[0], mask.shape[1]))
+    axes[1].imshow(mask, cmap='gray', vmin=0, vmax=4)
+    axes[1].axis('off')
+
+    axes[2].imshow(analysis, cmap='seismic', clim=(-1, 1))
+    axes[2].axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_image_analysis_mask(image, mask, analysis, data, figsize=(18, 5)):
     fig, axes = plt.subplots(1, 4, figsize=figsize)
     axes[0].imshow(image)
@@ -156,6 +177,7 @@ def plot_image_analysis_mask(image, mask, analysis, data, figsize=(18, 5)):
     mask = mask.reshape((mask.shape[0], mask.shape[1]))
     axes[1].imshow(mask, cmap='gray', vmin=0, vmax=4)
     axes[1].axis('off')
+
 
     axes[2].imshow(analysis, cmap='seismic', clim=(-1, 1))
     axes[2].axis('off')
