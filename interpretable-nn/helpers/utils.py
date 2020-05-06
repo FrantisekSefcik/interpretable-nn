@@ -72,6 +72,26 @@ def get_mask_of_brain_rgb(image, segmentation=None):
         return image > 0
 
 
+def indexes_predicted_groups(y, pred):
+    """
+    return indexes for each predicted group (TP, TN, FN, FP)
+    :param pred: numpy array of predicted class
+    :param y: numpy array of true class
+    :return: dictionary with arrays of True, False of index
+    """
+    if type(y) is not np.ndarray:
+        y = np.array(y)
+    if type(pred) is not np.ndarray:
+        pred = np.array(pred)
+
+    result = {'tp': (y == 1) & (pred == 1),
+              'tn': (y == 0) & (pred == 0),
+              'fn': (y == 1) & (pred == 0),
+              'fp': (y == 0) & (pred == 1)}
+    return result
+
+
+
 def sum_image_channels(image):
     """
     Sum values cross channels in image
@@ -88,6 +108,19 @@ def any_image_channels(image):
     :return: ndarray with shape (height, weight, 1)
     """
     return image.any(axis=np.argmax(np.asarray(image.shape) == 3))
+
+
+def scale_image_intensity(image, min=0, max=1):
+    """
+    Scale image intensities into range min max
+    :param image: original image
+    :param min: min of range
+    :param max: max of range
+    :return: scaled image
+    """
+
+    return image
+
 
 
 def reject_outliers(data, m=2):
