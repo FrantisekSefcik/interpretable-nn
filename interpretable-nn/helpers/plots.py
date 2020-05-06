@@ -1,6 +1,11 @@
+import sys
+sys.path.append('../')
+from helpers import utils
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report
 
 
 # This function will plot images in the form of a grid with 1 row and 5 columns
@@ -129,7 +134,7 @@ def plot_image_grid(images,
 
 
 def plot_data_distribution(data1, data2):
-    print("            data1    data2")
+    print("              1        0")
     print(f"mean:    |  {np.mean(data1):.2f}  |  {np.mean(data2):.2f}  |")
     print(f"std:     |  {np.std(data1, ddof=1):.2f}  |  {np.std(data2, ddof=1):.2f}  |")
     print(f"min:     |  {np.min(data1):.2f}  |  {np.min(data2):.2f}  |")
@@ -139,6 +144,53 @@ def plot_data_distribution(data1, data2):
                             figsize=(20, 5))
     sns.boxplot(data=[data1, data2], ax=axs[0])
     sns.violinplot(data=[data1, data2], ax=axs[1])
+    axs[0].xaxis.set_ticklabels(['true', 'false'])
+    axs[1].xaxis.set_ticklabels(['true', 'false'])
     sns.kdeplot(data=data1, shade=True, ax=axs[2])
     sns.kdeplot(data=data2, shade=True, ax=axs[2])
+
+
+def plot_data_distribution_groups(y, pred, scores):
+    """
+    Plot statistics of scores to compare TP, TN,
+    :param y:
+    :param pred:
+    :param scores:
+    :return:
+    """
+    cm = confusion_matrix(y, pred)
+    groups = utils.indexes_predicted_groups(y, pred)
+    print("Model performance:")
+    print(classification_report(y, pred))
+
+    print("Analyzer performance:")
+    fig, axs = plt.subplots(nrows=2, ncols=2, constrained_layout=True,
+                            figsize=(15, 10))
+    sns.boxplot(data=[scores[groups['tp']], scores[groups['tn']],
+                      scores[groups['fn']], scores[groups['fp']]],
+                ax=axs[0][0])
+    sns.violinplot(data=[scores[groups['tp']], scores[groups['tn']],
+                        scores[groups['fn']], scores[groups['fp']]],
+                   ax=axs[0][1])
+    axs[0][0].xaxis.set_ticklabels(['TP', 'TN', 'FN', 'FP'])
+    axs[0][1].xaxis.set_ticklabels(['TP', 'TN', 'FN', 'FP'])
+    sns.kdeplot(data=scores[groups['tp']], ax=axs[1][0], label="TP")
+    sns.kdeplot(data=scores[groups['tn']], ax=axs[1][0], label="TN")
+    sns.kdeplot(data=scores[groups['fn']], ax=axs[1][0], label="FN")
+    sns.kdeplot(data=scores[groups['fp']], ax=axs[1][0], label="FP")
+    plot_confusion_matrix(cm, ax=axs[1][1], labels=['LGG', 'HGG'])
+
+
+def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues,
+                          ax=None, labels=[]):
+    ax.matshow(cm, interpolation='nearest', cmap=cmap)
+    ax.set_title(title)
+    ax.set_xticklabels([''] + labels)
+    ax.set_yticklabels([''] + labels)
+    ax.set_ylabel('True label')
+    ax.set_xlabel('Predicted label')
+    ax.text(0, 0, cm[0][0], color='black', ha='center', va='center')
+    ax.text(1, 0, cm[0][1], color='black', ha='center', va='center')
+    ax.text(0, 1, cm[1][0], color='black', ha='center', va='center')
+    ax.text(1, 1, cm[1][1], color='black', ha='center', va='center')
 
