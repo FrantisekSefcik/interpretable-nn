@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('../')
 
 import numpy as np
@@ -6,7 +7,14 @@ import matplotlib.pyplot as plt
 from helpers import utils, plots
 
 
-def mask_value(heatmap, image,  mask):
+def mask_value(heatmap, image, mask):
+    """
+    Function to count metric how analysis hit into mask.
+    :param heatmap: saliency or activation map obtained from analyzer
+    :param image: original image
+    :param mask: mask of region where prediction should hit
+    :return: score
+    """
     if image.shape != mask.shape:
         raise Exception('Not equal shape of image and segmentation')
 
@@ -17,6 +25,42 @@ def mask_value(heatmap, image,  mask):
         return tumor_val / (tumor_val + brain_val)
     else:
         return 0
+
+
+def evaluate_analyzer(analyzer, images, segmentation, tumor_region=0):
+    """
+    Evaluate analyzer on batch of images
+    :param analyzer: method of interpretation to be used
+    :param images: original images to by processed
+    :param segmentation: segmentation of tumors from images
+    :param tumor_region: which tumor region should by analyzed (default 0: whole segmentation)
+    :return: vector of analyzer scores
+    """
+    analysis = analyzer.analyze(images)
+    pred_analysis = [evaluation.mask_value(a,
+                                           i,
+                                           utils.get_mask_of_seg_rgb(s,
+                                                                     tumor_region,
+                                                                     exact=tumor_region > 0))
+                     for a, i, s in zip(analysis, images, segmentation)]
+    return pred_analysis
+
+
+def evaluate_method(model, analyzer, images, segmentation, y, tumor_region=0):
+    """
+    Evaluate interpretation on batch of images
+    :param model: neural network model
+    :param analyzer: interpretation technique model
+    :param images: original images
+    :param segmentation: tumors segmentation of images
+    :param y: list of true values for prediction
+    :param tumor_region: number of tumor region (0,1,2,3,4)
+    :return: list of tuples (true value, model prediction, interpretation score)
+    """
+    prediction = model.predict_on_batch(images)
+    analysis = evaluate_analyzer(analyzer, images, segmentation, tumor_region)
+    pred = [x.argmax() for x in prediction]
+    return zip(y, pred, analysis)
 
 
 def process_analysis_image(img):
@@ -62,15 +106,17 @@ def evaluate_masks_visualize(model, analyzer, x, x_seg, y, figsize=(18, 5)):
     vt = mask_value(a[0], image[0], mask_t)
     data = {"1": v1, "2": v2, "3": v3, "4": v4, "total": vt}
     print(f"Pred: {pred}, prob: {prob:.4f}")
-    print(f"1: {v1:.4f}, 2: {v2:.4f}, 3: {v3:.4f}, 4: {v4:.4f}, total: {vt:.4f}")
-    plot_image_analysis_mask(image[0], x_seg, process_analysis_image(a[0]), data, figsize)
+    print(
+        f"1: {v1:.4f}, 2: {v2:.4f}, 3: {v3:.4f}, 4: {v4:.4f}, total: {vt:.4f}")
+    plot_image_analysis_mask(image[0], x_seg, process_analysis_image(a[0]),
+                             data, figsize)
 
 
 def evaluate_masks(model, analyzer, x, x_seg, y):
-    mask_1 = [utils.get_mask_of_seg_rgb(x, exact=1) for x in x_seg]
-    mask_2 = [utils.get_mask_of_seg_rgb(x, exact=2) for x in x_seg]
-    mask_3 = [utils.get_mask_of_seg_rgb(x, exact=3) for x in x_seg]
-    mask_4 = [utils.get_mask_of_seg_rgb(x, exact=4) for x in x_seg]
+    mask_1 = [utils.get_mask_of_seg_rgb(x, threshold=1, exact=True) for x in x_seg]
+    mask_2 = [utils.get_mask_of_seg_rgb(x, threshold=2, exact=True) for x in x_seg]
+    mask_3 = [utils.get_mask_of_seg_rgb(x, threshold=3, exact=True) for x in x_seg]
+    mask_4 = [utils.get_mask_of_seg_rgb(x, threshold=4, exact=True) for x in x_seg]
     mask_t = [utils.get_mask_of_seg_rgb(x) for x in x_seg]
     prediction = model.predict_on_batch(x)
     analysis = analyzer.analyze(x)
@@ -84,14 +130,6 @@ def evaluate_masks(model, analyzer, x, x_seg, y):
 
     return zip(y, y_hat, y_1, y_2, y_3, y_4, y_t)
 
-
-def evaluate_method(model, analyzer, x, x_seg, y):
-    prediction = model.predict_on_batch(x)
-    analysis = analyzer.analyze(x)
-    y_hat = [x.argmax() for x in prediction]
-    y_analysis = [mask_value(a, i, utils.get_mask_of_seg_rgb(s))
-                  for a, i, s in zip(analysis, x, x_seg)]
-    return zip(y, y_hat, y_analysis)
 
 def plot_image_analysis_mask(image, mask, analysis, data, figsize=(18, 5)):
     fig, axes = plt.subplots(1, 4, figsize=figsize)
@@ -110,4 +148,3 @@ def plot_image_analysis_mask(image, mask, analysis, data, figsize=(18, 5)):
 
     plt.tight_layout()
     plt.show()
-
