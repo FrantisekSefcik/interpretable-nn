@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('../')
 from helpers import utils
 
@@ -136,7 +137,8 @@ def plot_image_grid(images,
 def plot_data_distribution(data1, data2):
     print("              1        0")
     print(f"mean:    |  {np.mean(data1):.2f}  |  {np.mean(data2):.2f}  |")
-    print(f"std:     |  {np.std(data1, ddof=1):.2f}  |  {np.std(data2, ddof=1):.2f}  |")
+    print(
+        f"std:     |  {np.std(data1, ddof=1):.2f}  |  {np.std(data2, ddof=1):.2f}  |")
     print(f"min:     |  {np.min(data1):.2f}  |  {np.min(data2):.2f}  |")
     print(f"max:     |  {np.max(data1):.2f}  |  {np.max(data2):.2f}  |")
     print(f"median:  |  {np.median(data1):.2f}  |  {np.median(data2):.2f}  |")
@@ -153,32 +155,51 @@ def plot_data_distribution(data1, data2):
 def plot_data_distribution_groups(y, pred, scores):
     """
     Plot statistics of scores to compare TP, TN,
-    :param y:
-    :param pred:
-    :param scores:
-    :return:
+    :param y: array with true values
+    :param pred: array with predicted values
+    :param scores: scores of interpretability
+    :return: None
     """
-    cm = confusion_matrix(y, pred)
     groups = utils.indexes_predicted_groups(y, pred)
-    print("Model performance:")
-    print(classification_report(y, pred))
+    plot_statistics_groups(scores=[scores[groups['tp']], scores[groups['tn']],
+                                   scores[groups['fn']], scores[groups['fp']]],
+                           names=['TP', 'TN', 'FN', 'FP'])
+
+
+def plot_statistics_groups(scores, names):
+    """
+    Plot statistics of scores to compare TP, TN,
+    :param y: array with true values
+    :param pred: array with predicted values
+    :param scores: list of arrays of scores for each group
+    :param names: list with names of groups
+    :return: None
+    """
 
     print("Analyzer performance:")
-    fig, axs = plt.subplots(nrows=2, ncols=2, constrained_layout=True,
-                            figsize=(15, 10))
-    sns.boxplot(data=[scores[groups['tp']], scores[groups['tn']],
-                      scores[groups['fn']], scores[groups['fp']]],
-                ax=axs[0][0])
-    sns.violinplot(data=[scores[groups['tp']], scores[groups['tn']],
-                        scores[groups['fn']], scores[groups['fp']]],
-                   ax=axs[0][1])
-    axs[0][0].xaxis.set_ticklabels(['TP', 'TN', 'FN', 'FP'])
-    axs[0][1].xaxis.set_ticklabels(['TP', 'TN', 'FN', 'FP'])
-    sns.kdeplot(data=scores[groups['tp']], ax=axs[1][0], label="TP")
-    sns.kdeplot(data=scores[groups['tn']], ax=axs[1][0], label="TN")
-    sns.kdeplot(data=scores[groups['fn']], ax=axs[1][0], label="FN")
-    sns.kdeplot(data=scores[groups['fp']], ax=axs[1][0], label="FP")
-    plot_confusion_matrix(cm, ax=axs[1][1], labels=['LGG', 'HGG'])
+    fig, axs = plt.subplots(nrows=1, ncols=3, constrained_layout=True,
+                            figsize=(15, 4))
+    sns.boxplot(data=scores, ax=axs[0])
+    sns.violinplot(data=scores, ax=axs[1])
+    axs[0].xaxis.set_ticklabels(names)
+    axs[1].xaxis.set_ticklabels(names)
+    for score, name in zip(scores, names):
+        sns.kdeplot(data=score, ax=axs[2], label=name)
+    plt.show()
+
+
+def plot_model_performance(y, pred):
+    """
+    Plot confusion matrix and classification report.
+    :param y: array with true values
+    :param pred: array with predicted values
+    """
+    cm = confusion_matrix(y, pred)
+    print("Model performance:")
+    print(classification_report(y, pred))
+    fig, ax = plt.subplots(figsize=(5, 5))
+    plot_confusion_matrix(cm, ax=ax, labels=['LGG', 'HGG'])
+    plt.show()
 
 
 def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues,
@@ -193,4 +214,3 @@ def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues,
     ax.text(1, 0, cm[0][1], color='black', ha='center', va='center')
     ax.text(0, 1, cm[1][0], color='black', ha='center', va='center')
     ax.text(1, 1, cm[1][1], color='black', ha='center', va='center')
-
