@@ -18,7 +18,6 @@ def mask_value(heatmap, image, mask):
     """
     if image.shape != mask.shape:
         raise Exception('Not equal shape of image and segmentation')
-
     if mask.sum():
         brain_mask = utils.get_mask_of_brain_rgb(image, mask)
         tumor_val = heatmap[mask].sum() / mask.sum()
@@ -38,7 +37,10 @@ def evaluate_analyzer(analyzer, images, segmentation, tumor_region=0):
     :return: vector of analyzer scores
     """
     analysis = analyzer.analyze(images)
-    pred_analysis = [mask_value(a, i, utils.get_mask_of_seg_rgb(s, tumor_region, exact=tumor_region > 0))for a, i, s in zip(analysis, images, segmentation)]
+    pred_analysis = [mask_value(a,
+                                i,
+                                utils.get_mask_of_seg_rgb(s, tumor_region, exact=tumor_region > 0))
+                     for a, i, s in zip(analysis, images, segmentation)]
     return pred_analysis
 
 
@@ -51,29 +53,38 @@ def evaluate_method(model, analyzer, images, segmentation, y, tumor_region=0):
     :param segmentation: tumors segmentation of images
     :param y: list of true values for prediction
     :param tumor_region: number of tumor region (0,1,2,3,4)
-    :return: list of tuples (true value, model prediction, interpretation score)
+    :return: list of tuples
+    (true value, model prediction, prediction probability, interpretation score)
     """
     prediction = model.predict_on_batch(images)
     analysis = evaluate_analyzer(analyzer, images, segmentation, tumor_region)
     pred = [x.argmax() for x in prediction]
-    return zip(y.astype('int16'), pred, analysis)
+    prob = [x.max() for x in prediction]
+    return zip(y.astype('int16'), pred, prob, analysis)
 
 
-def evaluate_method_generator(model, analyzer, generator, tumor_region=0):
+def evaluate_method_generator(model, analyzer, generator,
+                              num_of_data=1, batch_size=1, tumor_region=0):
     """
     Evaluate interpretation with generator
     :param model: neural network model
     :param analyzer: interpretation technique model
     :param generator: generator of images and segmentation
     :param tumor_region: number of tumor region (0,1,2,3,4)
+    :param num_of_data: number of images
+    :param batch_size: batch size
     :return: list of tuples (true value, model prediction, interpretation score)
     """
+    num_of_iteration = num_of_data // batch_size
     final_iterator = iter([])
-    for (x, y), (x_seg, y_seg) in generator:
+    for i, ((x, y), (x_seg, y_seg)) in enumerate(generator):
+        if i >= num_of_iteration:
+            break
         final_iterator = chain(
             final_iterator,
             evaluate_method(model, analyzer, x, x_seg, y, tumor_region)
         )
+    return final_iterator
 
 
 def process_analysis_image(img):
@@ -83,18 +94,12 @@ def process_analysis_image(img):
 
 
 def evaluate_method_visualize(model, analyzer, x, x_seg, y):
-    prediction = model.predict_on_batch(x)
-    analysis = analyzer.analyze(x)
-    prob = [x.max() for x in prediction]
-    y_hat = [x.argmax() for x in prediction]
-    y_analysis = [mask_value(a, i, utils.get_mask_of_seg_rgb(s))
-                  for a, i, s in zip(analysis, x, x_seg)]
-    analysis = [process_analysis_image(img) for img in analysis]
-    results = zip(prob, y, y_hat, y_analysis)
+    metrics = evaluate_method(model, analyzer, x, x_seg, y)
+    (y, pred, prob, score) = np.stack(np.array(list(metrics)), axis=-1)
     titles = [
         ('Prob: {:.2f}'.format(p), 'Label: {}'.format(y),
          'Pred: {}'.format(y_h), 'Eval: {:.2f}'.format(y_a))
-        for p, y, y_h, y_a in results]
+        for p, y, y_h, y_a in metrics]
 
     plots.plot_rgb_images(x, titles=titles)
     plots.plot_gray_images(x_seg)
