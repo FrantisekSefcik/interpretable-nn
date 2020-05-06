@@ -5,6 +5,7 @@ sys.path.append('../')
 import numpy as np
 import matplotlib.pyplot as plt
 from helpers import utils, plots
+from itertools import chain
 
 
 def mask_value(heatmap, image, mask):
@@ -37,12 +38,7 @@ def evaluate_analyzer(analyzer, images, segmentation, tumor_region=0):
     :return: vector of analyzer scores
     """
     analysis = analyzer.analyze(images)
-    pred_analysis = [evaluation.mask_value(a,
-                                           i,
-                                           utils.get_mask_of_seg_rgb(s,
-                                                                     tumor_region,
-                                                                     exact=tumor_region > 0))
-                     for a, i, s in zip(analysis, images, segmentation)]
+    pred_analysis = [mask_value(a, i, utils.get_mask_of_seg_rgb(s, tumor_region, exact=tumor_region > 0))for a, i, s in zip(analysis, images, segmentation)]
     return pred_analysis
 
 
@@ -60,7 +56,24 @@ def evaluate_method(model, analyzer, images, segmentation, y, tumor_region=0):
     prediction = model.predict_on_batch(images)
     analysis = evaluate_analyzer(analyzer, images, segmentation, tumor_region)
     pred = [x.argmax() for x in prediction]
-    return zip(y, pred, analysis)
+    return zip(y.astype('int16'), pred, analysis)
+
+
+def evaluate_method_generator(model, analyzer, generator, tumor_region=0):
+    """
+    Evaluate interpretation with generator
+    :param model: neural network model
+    :param analyzer: interpretation technique model
+    :param generator: generator of images and segmentation
+    :param tumor_region: number of tumor region (0,1,2,3,4)
+    :return: list of tuples (true value, model prediction, interpretation score)
+    """
+    final_iterator = iter([])
+    for (x, y), (x_seg, y_seg) in generator:
+        final_iterator = chain(
+            final_iterator,
+            evaluate_method(model, analyzer, x, x_seg, y, tumor_region)
+        )
 
 
 def process_analysis_image(img):
