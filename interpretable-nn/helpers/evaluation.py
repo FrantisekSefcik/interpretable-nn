@@ -20,8 +20,8 @@ def mask_value(heatmap, image, mask):
         raise Exception('Not equal shape of image and segmentation')
     if mask.sum():
         brain_mask = utils.get_mask_of_brain_rgb(image, mask)
-        tumor_val = heatmap[mask].sum() / mask.sum()
-        brain_val = heatmap[brain_mask].sum() / brain_mask.sum()
+        tumor_val = heatmap[mask].clip(0).sum() / mask.sum()
+        brain_val = heatmap[brain_mask].clip(0).sum() / brain_mask.sum()
         return tumor_val / (tumor_val + brain_val)
     else:
         return 0
@@ -87,12 +87,6 @@ def evaluate_method_generator(model, analyzer, generator,
     return final_iterator
 
 
-def process_analysis_image(img):
-    img = img.sum(axis=np.argmax(np.asarray(img.shape) == 3))
-    img /= np.max(np.abs(img))
-    return img
-
-
 def visualize_method(model, analyzer, x, x_seg, y):
     metrics = evaluate_method(model, analyzer, x, x_seg, y)
     analisis_imgs = analyzer.analyze(x)
@@ -102,89 +96,80 @@ def visualize_method(model, analyzer, x, x_seg, y):
         for y, y_h, p, y_a in metrics]
 
     for img, seg, anlz, title in zip(x, x_seg, analisis_imgs, titles):
-        plot_image_analysis(img, seg, anlz, title)
+        plot_image_analysis([('rgb', img),
+                             ('mask', seg),
+                             ('heatmap', anlz)],
+                            title)
 
+def visualize_method_by_regions(model, analyzer, x, x_seg, y):
+    metrics1 = evaluate_method(model, analyzer, x, x_seg, y, 1)
+    metrics2 = evaluate_method(model, analyzer, x, x_seg, y, 2)
+    metrics4 = evaluate_method(model, analyzer, x, x_seg, y, 4)
+    metricst = evaluate_method(model, analyzer, x, x_seg, y, 0)
+    analisis_imgs = analyzer.analyze(x)
+    metricst = list(metricst)
+    titles = [
+        ('Label: {}     '.format(y), 'Pred:  {}     '.format(y_h),
+         'Prob:  {:.2f}'.format(p), 'Score: {:.2f}'.format(y_a))
+        for y, y_h, p, y_a in metricst]
+    histogram_data = [
+        {
+            'reg_1': m1[3], 'reg_2': m2[3], 'reg_4': m4[3], 'total': mt[3]
+        }
+        for m1, m2, m4, mt in zip(metrics1, metrics2, metrics4, metricst)]
 
-def evaluate_masks_visualize(model, analyzer, x, x_seg, y, figsize=(18, 5)):
-    image = x[None, :, :, :]
-    mask_1 = utils.get_mask_of_seg_rgb(x_seg, exact=1)
-    mask_2 = utils.get_mask_of_seg_rgb(x_seg, exact=2)
-    mask_3 = utils.get_mask_of_seg_rgb(x_seg, exact=3)
-    mask_4 = utils.get_mask_of_seg_rgb(x_seg, exact=4)
-    mask_t = utils.get_mask_of_seg_rgb(x_seg)
-    pred = model.predict(image)
-    prob = pred.max()
-    pred = pred.argmax()
-    a = analyzer.analyze(image)
-    v1 = mask_value(a[0], image[0], mask_1)
-    v2 = mask_value(a[0], image[0], mask_2)
-    v3 = mask_value(a[0], image[0], mask_3)
-    v4 = mask_value(a[0], image[0], mask_4)
-    vt = mask_value(a[0], image[0], mask_t)
-    data = {"1": v1, "2": v2, "3": v3, "4": v4, "total": vt}
-    print(f"Pred: {pred}, prob: {prob:.4f}")
-    print(
-        f"1: {v1:.4f}, 2: {v2:.4f}, 3: {v3:.4f}, 4: {v4:.4f}, total: {vt:.4f}")
-    plot_image_analysis_mask(image[0], x_seg, process_analysis_image(a[0]),
-                             data, figsize)
+    print(histogram_data)
+    for img, seg, anlz, hist, title in zip(x, x_seg, analisis_imgs, histogram_data, titles):
+        plot_image_analysis([('rgb', img),
+                             ('mask', seg),
+                             ('heatmap', anlz),
+                             ('hist', hist)],
+                            title)
 
+def plot_image_analysis(graphs, title=None, figsize=(10, 2)):
+    """
+    Plot multiple plot format in one line and title on left.
+    :param graphs: list of tuples, where tuple is (type, data).
+    Type is one of [rgb, mask, heatmap, hist],
+    Data are ether image or dictionary for 'hist' type.
+    :param title: list of string to by printed on left
+    :param figsize: size of figure
+    """
 
-def evaluate_masks(model, analyzer, x, x_seg, y):
-    mask_1 = [utils.get_mask_of_seg_rgb(x, threshold=1, exact=True) for x in x_seg]
-    mask_2 = [utils.get_mask_of_seg_rgb(x, threshold=2, exact=True) for x in x_seg]
-    mask_3 = [utils.get_mask_of_seg_rgb(x, threshold=3, exact=True) for x in x_seg]
-    mask_4 = [utils.get_mask_of_seg_rgb(x, threshold=4, exact=True) for x in x_seg]
-    mask_t = [utils.get_mask_of_seg_rgb(x) for x in x_seg]
-    prediction = model.predict_on_batch(x)
-    analysis = analyzer.analyze(x)
+    fig, axes = plt.subplots(1, len(graphs), figsize=figsize)
+    if title is not None:
+        txt_left = [l + '\n' for l in title]
+        axes[0].set_ylabel(
+            ''.join(txt_left),
+            rotation=0, verticalalignment='center', horizontalalignment='right'
+        )
+        axes[0].set_xticks([])
+        axes[0].set_yticks([])
 
-    y_hat = [x.argmax() for x in prediction]
-    y_t = [mask_value(a, i, m) for a, i, m in zip(analysis, x, mask_t)]
-    y_1 = [mask_value(a, i, m) for a, i, m in zip(analysis, x, mask_1)]
-    y_2 = [mask_value(a, i, m) for a, i, m in zip(analysis, x, mask_2)]
-    y_3 = [mask_value(a, i, m) for a, i, m in zip(analysis, x, mask_3)]
-    y_4 = [mask_value(a, i, m) for a, i, m in zip(analysis, x, mask_4)]
+    for ax, (type, data) in zip(axes, graphs):
 
-    return zip(y, y_hat, y_1, y_2, y_3, y_4, y_t)
-
-
-def plot_image_analysis(image, mask, analysis, title, figsize=(10, 2)):
-    fig, axes = plt.subplots(1, 3, figsize=figsize)
-    axes[0].imshow(image)
-    # axes[1].axis('off')
-    txt_left = [l + '\n' for l in title]
-    axes[0].set_ylabel(
-        ''.join(txt_left),
-        rotation=0, verticalalignment='center', horizontalalignment='right'
-    )
-    axes[0].set_xticks([])
-    axes[0].set_yticks([])
-    mask = mask.reshape((mask.shape[0], mask.shape[1]))
-    axes[1].imshow(mask, cmap='gray', vmin=0, vmax=4)
-    axes[1].axis('off')
-
-    axes[2].imshow(analysis, cmap='seismic', clim=(-1, 1))
-    axes[2].axis('off')
-
+        if type is 'rgb':
+            ax.imshow(process_brain_image(data))
+        elif type is 'mask':
+            mask = data.reshape((data.shape[0], data.shape[1]))
+            ax.imshow(mask, cmap='gray', vmin=0, vmax=4)
+            ax.axis('off')
+        elif type is 'heatmap':
+            ax.imshow(process_analysis_image(data), cmap='seismic', clim=(-1, 1))
+            ax.axis('off')
+        elif type is 'hist':
+            names = list(data.keys())
+            values = list(data.values())
+            ax.bar(names, values)
     plt.tight_layout()
     plt.show()
 
+def process_brain_image(image):
+    image = image + np.abs(image.min())
+    image = image / image.max()
+    return image
 
-def plot_image_analysis_mask(image, mask, analysis, data, figsize=(18, 5)):
-    fig, axes = plt.subplots(1, 4, figsize=figsize)
-    axes[0].imshow(image)
-    axes[0].axis('off')
-    mask = mask.reshape((mask.shape[0], mask.shape[1]))
-    axes[1].imshow(mask, cmap='gray', vmin=0, vmax=4)
-    axes[1].axis('off')
-
-
-    axes[2].imshow(analysis, cmap='seismic', clim=(-1, 1))
-    axes[2].axis('off')
-
-    names = list(data.keys())
-    values = list(data.values())
-    axes[3].bar(names, values)
-
-    plt.tight_layout()
-    plt.show()
+def process_analysis_image(img):
+    img = img.sum(axis=np.argmax(np.asarray(img.shape) == 3))
+    img /= np.max(np.abs(img))
+    return img
