@@ -118,13 +118,50 @@ def visualize_method_by_regions(model, analyzer, x, x_seg, y):
         }
         for m1, m2, m4, mt in zip(metrics1, metrics2, metrics4, metricst)]
 
-    print(histogram_data)
     for img, seg, anlz, hist, title in zip(x, x_seg, analisis_imgs, histogram_data, titles):
         plot_image_analysis([('rgb', img),
                              ('mask', seg),
                              ('heatmap', anlz),
                              ('hist', hist)],
-                            title)
+                            title, (15,3))
+
+def visualize_prediction_confidence(model, analyzer, knn, x, x_seg, y):
+    metrics1 = evaluate_method(model, analyzer, x, x_seg, y, 1)
+    metrics2 = evaluate_method(model, analyzer, x, x_seg, y, 2)
+    metrics4 = evaluate_method(model, analyzer, x, x_seg, y, 4)
+    metricst = evaluate_method(model, analyzer, x, x_seg, y, 0)
+    analisis_imgs = analyzer.analyze(x)
+    metricst = list(metricst)
+    metrics1 = list(metrics1)
+    metrics2 = list(metrics2)
+    metrics4 = list(metrics4)
+    titles = [
+        ('Label: {}     '.format(y), 'Pred:  {}     '.format(y_h),
+         'Prob:  {:.2f}'.format(p), 'Score: {:.2f}'.format(y_a))
+        for y, y_h, p, y_a in metricst]
+
+    x_metrics = [
+        (mt[3], m1[3], m2[3], m4[3], mt[1], mt[2])
+        for m1, m2, m4, mt in zip(metrics1, metrics2, metrics4, metricst)]
+
+    pred_proba = knn.predict_proba(x_metrics)
+
+    hist_confidence = [
+        {'true': prob[0], 'false': prob[3]}
+        if metric[1] == 1 else
+        {'true': prob[1], 'false': prob[2]}
+        for prob, metric in zip(pred_proba, metricst)
+    ]
+
+    for img, seg, anlz, hist, conf, title in zip(x, x_seg, analisis_imgs,
+                                           histogram_data, hist_confidence,
+                                                       titles):
+        plot_image_analysis([('rgb', img),
+                             ('mask', seg),
+                             ('heatmap', anlz),
+                             # ('hist', hist),
+                             ('hist', conf)],
+                            title, (15,3))
 
 def plot_image_analysis(graphs, title=None, figsize=(10, 2)):
     """
@@ -161,6 +198,7 @@ def plot_image_analysis(graphs, title=None, figsize=(10, 2)):
             names = list(data.keys())
             values = list(data.values())
             ax.bar(names, values)
+            ax.set_ylim(0, 1)
     plt.tight_layout()
     plt.show()
 
