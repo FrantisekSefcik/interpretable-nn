@@ -18,9 +18,6 @@ We trained network for problem of aggressiveness brain tumor prediction on volum
 ## Installation
 
 1. Clone repository
-```shell script
-git clone git@github.com:vgg-fiit/pv-semestralny-projekt-streda-18-tamajka-FrantisekSefcik.git
-```
 
 2. Build docker image
 ```shell script
